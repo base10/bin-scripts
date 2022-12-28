@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require "debug"
-require "fileuils"
+require "fileutils"
 require "json"
 
 class DraftsMarkdownConverter
