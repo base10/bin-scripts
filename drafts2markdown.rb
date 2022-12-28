@@ -1,31 +1,50 @@
 #!/usr/bin/env ruby
 
 require "debug"
-require "fileutils"
 require "json"
+require "pathname"
 
 class DraftsMarkdownConverter
-  attr_accessor :input_file, :input, :output_dir
+  attr_accessor(
+    :errors, :input_file, :input, :input_pathname, :output_dir, :output_pathname
+  )
 
   def initialize(input_file:, output_dir:)
+    @errors = []
     @input_file = input_file
     @output_dir = output_dir
   end
 
   def run
+    confirm_io
+
     read_input
-    confirm_output_dir
     convert_drafts_json
+
+    report_errors
+    report_status
   end
 
   private
 
   def read_input
+    @input = JSON.parse(input_pathname.read)
   end
 
-  def confirm_output_dir
-    # Directory should exist and be writable
-    # Future iterations might consider creating a missing directory structure
+  # Directory should exist and be writable
+  # Future iterations might consider creating a missing directory structure
+  def confirm_io
+    errors = []
+
+    # TODO: Look at the path parts and if the first element is `~`, swap it out
+    # for the HOME env var.
+
+    @input_pathname = Pathname.new(input_file)
+    @output_pathname = Pathname.new(output_dir)
+
+#binding.break
+
+    puts output_pathname.directory?
   end
 
   def convert_drafts_json
@@ -34,17 +53,20 @@ class DraftsMarkdownConverter
     # based on the creation date
       # Disambiguate files as needed
   end
+
+  def report_errors
+  end
+
+  def report_status
+  end
 end
 
 # TODO: Find examples of using opts parser vs. positional args
 input_file_name = ARGV.shift
 output_dir = ARGV.shift
 
-# TODO: Check if I need Pathname
-input_file = File.path(Pathname.new(input_file_name))
-
 converter = DraftsMarkdownConverter.new(
-  input_file: input_file,
+  input_file: input_file_name,
   output_dir: output_dir
 )
 
