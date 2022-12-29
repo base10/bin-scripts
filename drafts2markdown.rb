@@ -17,8 +17,10 @@ class DraftsMarkdownConverter
 
   def run
     confirm_io
-
     read_input
+
+binding.break
+
     convert_drafts_json
 
     report_errors
@@ -42,8 +44,6 @@ class DraftsMarkdownConverter
     @input_pathname = Pathname.new(input_file)
     @output_pathname = Pathname.new(output_dir)
 
-#binding.break
-
     puts output_pathname.directory?
   end
 
@@ -52,6 +52,13 @@ class DraftsMarkdownConverter
     # Use the metadata to create a URL safe file name leading with YYYY-MM-DD
     # based on the creation date
       # Disambiguate files as needed
+
+    # TODO: pull the reporting count from input size
+
+binding.break
+
+    input.each do |item|
+    end
   end
 
   def report_errors
@@ -59,6 +66,19 @@ class DraftsMarkdownConverter
 
   def report_status
   end
+
+  def item_title(item)
+  end
+
+  def write_item(item)
+    # Use #item_title
+      # create the file with file metadata based on what was put into Drafts and
+      # exists in the Drafts entry metadata
+
+  end
+
+  # Possibly have a new class for entries themselves?
+    # Leave that for later extraction
 end
 
 # TODO: Find examples of using opts parser vs. positional args
