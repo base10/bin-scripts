@@ -6,7 +6,12 @@ require "pathname"
 
 class DraftsMarkdownConverter
   attr_accessor(
-    :errors, :input_file, :input, :input_pathname, :output_dir, :output_pathname
+    :errors,
+    :input_file,
+    :input,
+    :input_pathname,
+    :output_dir,
+    :output_pathname
   )
 
   def initialize(input_file:, output_dir:)
@@ -18,8 +23,6 @@ class DraftsMarkdownConverter
   def run
     confirm_io
     read_input
-
-binding.break
 
     convert_drafts_json
 
@@ -44,6 +47,7 @@ binding.break
     @input_pathname = Pathname.new(input_file)
     @output_pathname = Pathname.new(output_dir)
 
+    # TODO: Confirm the things exist or raise errors
     puts output_pathname.directory?
   end
 
@@ -55,10 +59,8 @@ binding.break
 
     # TODO: pull the reporting count from input size
 
-binding.break
-
-    input.each do |item|
-    end
+    #input.each_with_index { |item, index| write_item(index: index, item: item) }
+    write_item(index: 0, item: input.first)
   end
 
   def report_errors
@@ -67,14 +69,19 @@ binding.break
   def report_status
   end
 
-  def item_title(item)
+  def file_name(index:, item:)
+    output_pathname.join("#{index}.md")
   end
 
-  def write_item(item)
-    # Use #item_title
+  def write_item(index:, item:)
+    # Use #file_name
       # create the file with file metadata based on what was put into Drafts and
       # exists in the Drafts entry metadata
 
+    File.write(
+      file_name(index: index, item: item),
+      item["content"]
+    )
   end
 
   # Possibly have a new class for entries themselves?
