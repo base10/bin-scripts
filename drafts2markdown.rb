@@ -1,10 +1,13 @@
 #!/usr/bin/env ruby
 
+require "date"
 require "debug"
 require "json"
 require "pathname"
 
 class DraftsMarkdownConverter
+  DATE_FORMAT = "%Y-%m-%d".freeze
+
   attr_accessor(
     :errors,
     :file_prefix,
@@ -71,8 +74,11 @@ class DraftsMarkdownConverter
   def report_status
   end
 
-  def file_name(index:, item:)
-    output_pathname.join("#{file_prefix}-#{index}.md")
+  def file_pathname(index:, item:)
+    draft_creation_date = draft_creation_date(item: item)
+    file_name = "#{draft_creation_date}-#{file_prefix}-#{index}.md"
+
+    output_pathname.join(file_name)
   end
 
   def write_item(index:, item:)
@@ -82,10 +88,14 @@ class DraftsMarkdownConverter
 
     # Second or subsequent iteration, use an in-line ERb template
     File.write(
-      file_name(index: index, item: item),
+      file_pathname(index: index, item: item),
       item["content"]
     )
   end
+
+  def draft_creation_date(item:)
+    Date.strptime(item.fetch("created_at"), DATE_FORMAT)
+   end
 
   # Possibly have a new class for entries themselves?
     # Leave that for later extraction
