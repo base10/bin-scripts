@@ -7,6 +7,7 @@ require "pathname"
 class DraftsMarkdownConverter
   attr_accessor(
     :errors,
+    :file_prefix,
     :input_file,
     :input,
     :input_pathname,
@@ -14,8 +15,9 @@ class DraftsMarkdownConverter
     :output_pathname
   )
 
-  def initialize(input_file:, output_dir:)
+  def initialize(file_prefix:, input_file:, output_dir:)
     @errors = []
+    @file_prefix = file_prefix
     @input_file = input_file
     @output_dir = output_dir
   end
@@ -70,7 +72,7 @@ class DraftsMarkdownConverter
   end
 
   def file_name(index:, item:)
-    output_pathname.join("#{index}.md")
+    output_pathname.join("#{file_prefix}-#{index}.md")
   end
 
   def write_item(index:, item:)
@@ -78,6 +80,7 @@ class DraftsMarkdownConverter
       # create the file with file metadata based on what was put into Drafts and
       # exists in the Drafts entry metadata
 
+    # Second or subsequent iteration, use an in-line ERb template
     File.write(
       file_name(index: index, item: item),
       item["content"]
@@ -89,11 +92,13 @@ class DraftsMarkdownConverter
 end
 
 # TODO: Find examples of using opts parser vs. positional args
-input_file_name = ARGV.shift
+
+input_file = ARGV.shift
 output_dir = ARGV.shift
 
 converter = DraftsMarkdownConverter.new(
-  input_file: input_file_name,
+  file_prefix: "dayplan".freeze,
+  input_file: input_file,
   output_dir: output_dir
 )
 
