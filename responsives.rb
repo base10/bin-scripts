@@ -9,7 +9,6 @@ require "image_size"
 require "optparse"
 
 class ResponsiveImage
-
   DEFAULT_QUALITY = 85
 
   attr_reader(
@@ -68,11 +67,11 @@ class OriginalImage
 
   def orientation
     if height < width
-      'landscape'
+      "landscape"
     elsif height > width
-      'portrait'
+      "portrait"
     else
-      'square'
+      "square"
     end
   end
 
@@ -135,8 +134,8 @@ class ResponsiveImageBuilder
 
   def call
     # init the responsive image set
-      # Unsure about where the load ought to be carried for what the responsive
-      # versions are, starting with ResponsiveImageSet
+    # Unsure about where the load ought to be carried for what the responsive
+    # versions are, starting with ResponsiveImageSet
 
     input_file = input_file_path(input_files[0])
     image_set = ResponsiveImageSet.new(
