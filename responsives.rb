@@ -2,6 +2,7 @@
 
 require "bundler/setup"
 require "debug"
+require "erb"
 require "exif"
 require "forwardable"
 require "image_processing/vips"
@@ -12,13 +13,19 @@ class ResponsiveImage
   DEFAULT_QUALITY = 85
 
   attr_reader(
-    :height, :max_dimension, :original, :output_image, :output_dir, :width
+    :height, :max_dimension, :original, :output_image, :output_dir, :path,
+    :width
   )
 
-  def initialize(max_dimension:, original:, output_dir:)
+  def initialize(max_dimension:, original:, output_dir:, path:)
     @max_dimension = max_dimension
     @original = original
     @output_dir = output_dir
+    @path = path
+  end
+
+  def main?
+    max_dimension == ResponsiveImageSet::MAIN_VARIANT
   end
 
   def process
@@ -30,6 +37,8 @@ class ResponsiveImage
       .call(save: false)
 
     @output_image.write_to_file(output_file.to_s, **options)
+    @height = @output_image.height
+    @width = @output_image.width
   end
 
   def options
@@ -47,6 +56,10 @@ class ResponsiveImage
       original.basename,
       max_dimension
     ].join("_").concat(original.extension)
+  end
+
+  def image_path
+    [path, filename].join("/")
   end
 end
 
@@ -87,23 +100,36 @@ end
 class ResponsiveImageSet
   include Enumerable
 
-  attr_reader :images, :input_file, :original_image, :output_dir
+  MAIN_VARIANT = 1200
+  TEMPLATE = "./tmpl/figcaption.html.erb".freeze
 
-  def initialize(input_file:, output_dir:)
+  attr_accessor :images, :main_image
+  attr_reader :input_file, :original_image, :output_dir, :path
+
+  def initialize(input_file:, output_dir:, path:)
     @input_file = input_file
     @output_dir = output_dir
+    @path = path
     @images = []
+  end
+
+  def caption
+    "This is a default image caption".freeze
   end
 
   def prepare
     @original_image = OriginalImage.new(input_file: input_file)
 
     variants.each do |variant|
-      images << ResponsiveImage.new(
+      image = ResponsiveImage.new(
         max_dimension: variant,
         original: original_image,
-        output_dir: output_dir
+        output_dir: output_dir,
+        path: path
       )
+      
+      @main_image = image if image.main? 
+      images << image
     end
   end
 
@@ -111,11 +137,21 @@ class ResponsiveImageSet
     images.each(&block)
   end
 
+  def build_html
+    template = File.read(TEMPLATE)
+    html = ERB.new(template, trim_mode: "%-")
+    $stdout.puts(html.run(get_binding))
+  end
+
+  def get_binding
+    binding
+  end
+
   # Assuming for now these would be max for both height and width
   # I probably can't support an infinitely tall monitor, though
   def variants
     [
-      1200,
+      MAIN_VARIANT,
       800,
       640,
       320
@@ -124,30 +160,42 @@ class ResponsiveImageSet
 end
 
 class ResponsiveImageBuilder
-  attr_reader :input_dir, :input_files, :output_dir
+  attr_reader :image_sets, :input_dir, :input_files, :output_dir, :path
 
-  def initialize(input_dir:, input_files:, output_dir:)
+  def initialize(input_dir:, input_files:, output_dir:, path:)
+    @image_sets = []
     @input_dir = input_dir
     @input_files = input_files
     @output_dir = output_dir
+    @path = path
   end
 
   def call
-    # init the responsive image set
-    # Unsure about where the load ought to be carried for what the responsive
-    # versions are, starting with ResponsiveImageSet
+    input_files.each do |input_file|
+      handle_input_file(input_file)
+    end
+  end
 
-    input_file = input_file_path(input_files[0])
+  private
+
+  # init the responsive image set
+  # Unsure about where the load ought to be carried for what the responsive
+  # versions are, starting with ResponsiveImageSet
+  def handle_input_file(input_file)
     image_set = ResponsiveImageSet.new(
-      input_file: input_file,
-      output_dir: output_dir
+      input_file: input_file_path(input_file),
+      output_dir: output_dir,
+      path: path
     )
 
     image_set.prepare
     image_set.map(&:process)
+    # Pass the image set into a responsive image srcset generator
+      # Look at the generated variants/sizes, the generated filenames, the
+      # _expected_ filename for everything, output HTML to STDOUT unless a
+      # file handle is specified
+    puts image_set.build_html
   end
-
-  private
 
   def input_file_path(input_file)
     Pathname.new(input_dir).join(input_file)
@@ -185,6 +233,15 @@ OptionParser.new do |parser|
     options[:output_dir] = output_dir
   end
 
+  parser.on(
+    "-pPATH",
+    "--path=PATH",
+    String,
+    "Relative path the image(s) will appear at"
+  ) do |path|
+    options[:path] = path
+  end
+
   parser.on("-h", "--help", "Prints this help") do
     puts parser
     exit
@@ -194,7 +251,10 @@ end.parse!
 builder = ResponsiveImageBuilder.new(
   input_dir: options[:input_dir],
   input_files: options[:input_files],
-  output_dir: options[:output_dir]
+  output_dir: options[:output_dir],
+  path: options[:path]
 )
+
+# binding.break
 
 builder.call

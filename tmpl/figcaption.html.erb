@@ -1,35 +1,21 @@
-<% @responsive_image_set.each do |responsive_image| %>
-  <%= responsive_image.path %> <%= responsive_image.width %>w,
-<% end %>
-
-<% @responsive_image_set.each do |responsive_image| %>
-  <% if responsive_image.main> %>
-    <%= responsive_image.width %>px
-  <% else %>
-  (max-width: <%= responsive_image.max_width %>) <%= responsive_image.width %>px,
-  <% end %>
-<% end %>
-
-<%= @responsive_image_set.caption %>
-
 <figcaption>
-    <img
-        srcsrc="
-            /assets/site_images/blog/2023-09-23-flower/2023-09-22-backyard-williams-twp-pa-3732_320.jpg 320w,
-            /assets/site_images/blog/2023-09-23-flower/2023-09-22-backyard-williams-twp-pa-3732_640.jpg 640w,
-            /assets/site_images/blog/2023-09-23-flower/2023-09-22-backyard-williams-twp-pa-3732_800.jpg 800w,
-            /assets/site_images/blog/2023-09-23-flower/2023-09-22-backyard-williams-twp-pa-3732_1200.jpg 1200w
-        "
-        sizes="
-            (max-width: 400px) 320px,
-            (max-width: 768px) 640px,
-            (max-width: 1024px) 800px,
-            1200px
-        "
-        src="/assets/site_images/blog/2023-09-23-flower/2023-09-22-backyard-williams-twp-pa-3732_1200.jpg"
-        height="auto"
-        width="100%"
-        alt=">#caption#<"
-    >
-    <caption> >#caption#< </caption>
+<img
+    srcset="
+    <% images.each do |responsive_image| -%>
+      <%= responsive_image.image_path %> <%= responsive_image.width %>w,
+    <% end -%>"
+    sizes="
+    <% images.each do |responsive_image| -%>
+      <% if responsive_image.main? -%>
+      <%= responsive_image.width %>px,
+      <%- else -%>
+      (max-width: <%= responsive_image.max_dimension %>) <%= responsive_image.width %>px,
+      <% end -%>
+    <% end -%>"
+    src="<%= main_image.image_path %>"
+    height="auto"
+    width="100%"
+    alt="<%= caption %>"
+>
+<caption><%= caption %></caption>
 </figcaption>
