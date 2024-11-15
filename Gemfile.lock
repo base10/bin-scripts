@@ -1,16 +1,31 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    debug (1.7.1)
+    cgi (0.4.1)
+    debug (1.9.2)
+      irb (~> 1.10)
+      reline (>= 0.3.8)
+    erb (4.0.4)
+      cgi (>= 0.3.3)
     exif (2.2.4)
     ffi (1.15.5)
     image_processing (1.12.2)
       mini_magick (>= 4.9.5, < 5)
       ruby-vips (>= 2.0.17, < 3)
     image_size (3.2.0)
+    io-console (0.7.2)
+    irb (1.14.1)
+      rdoc (>= 4.0.0)
+      reline (>= 0.4.2)
     language_server-protocol (3.17.0.3)
     mini_magick (4.12.0)
     prettier_print (1.2.1)
+    psych (5.2.0)
+      stringio
+    rdoc (6.7.0)
+      psych (>= 4.0.0)
+    reline (0.5.11)
+      io-console (~> 0.5)
     ruby-lsp (0.4.1)
       language_server-protocol (~> 3.17.0)
       sorbet-runtime
@@ -18,14 +33,17 @@ GEM
     ruby-vips (2.1.4)
       ffi (~> 1.12)
     sorbet-runtime (0.5.10712)
+    stringio (3.1.2)
     syntax_tree (6.0.2)
       prettier_print (>= 1.2.0)
 
 PLATFORMS
+  arm64-darwin-23
   x86_64-darwin-21
 
 DEPENDENCIES
   debug
+  erb
   exif
   image_processing
   image_size
