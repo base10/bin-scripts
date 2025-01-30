@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require "optparse"
 require "erb"
@@ -6,6 +7,17 @@ require "debug"
 
 class OneToOneMeeting
   TEMPLATE_PATH = "./tmpl/one-to-one.md.erb"
+  OUTPUT_BASE = [
+    ENV.fetch("HOME"),
+     "/SynologyDrive/Documents/vitalsource/one-on-one-notes"
+  ].join("/")
+
+  PERSON_MAPPING = {
+    "tanner-huynh" => "Tanner Huynh"
+  }
+
+  # Build a lightweight data object for each person, name, and directory path
+  # Be able to refer to them by keyboard?
 
   attr_accessor :meeting_notes_markdown
   attr_reader :date, :name, :output_dir
