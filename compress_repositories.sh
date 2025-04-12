@@ -5,7 +5,7 @@
 REPO_DIR="/Users/nathan/code"
 
 # Loop through all directories and subdirectories at the same level as
-repositories
+# repositories
 for dir in "$REPO_DIR"/*; do
   # Check if the current directory is a repository (contains .git directory)
   if [ -d "$dir"/.git ]; then
