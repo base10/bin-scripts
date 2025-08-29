@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+
+ctags -R --languages=ruby \
+  --fields=+S+a+m \
+  --exclude=.git \
+  --exclude=log \
+  --exclude=tmp \
+  . $(bundle list --paths)
