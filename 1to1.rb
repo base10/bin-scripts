@@ -5,7 +5,7 @@ require "erb"
 require "debug"
 
 class OneToOneMeeting
-  TEMPLATE_PATH = "./tmpl/one-to-one.md.erb"
+  TEMPLATE_RELATIVE_PATH = "/tmpl/one-to-one.md.erb"
 
   attr_accessor :meeting_notes_markdown
   attr_reader :date, :name, :output_dir
@@ -34,7 +34,7 @@ class OneToOneMeeting
   end
 
   def generate_meeting_notes
-    template = File.read(TEMPLATE_PATH)
+    template = File.read(template_path)
     markdown = ERB.new(template, trim_mode:  "%-")
 
     @meeting_notes_markdown = markdown.result(get_binding)
@@ -42,6 +42,10 @@ class OneToOneMeeting
 
   def get_binding
     binding
+  end
+
+  def template_path
+    File.expand_path(File.dirname(__FILE__)) + TEMPLATE_RELATIVE_PATH
   end
 
   def save_to_file
