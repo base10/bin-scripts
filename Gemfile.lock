@@ -5,10 +5,11 @@ GEM
     debug (1.11.0)
       irb (~> 1.10)
       reline (>= 0.3.8)
-    erb (5.0.2)
+    erb (6.0.1.1)
     exif (2.2.4)
     ffi (1.17.2-arm64-darwin)
     ffi (1.17.2-x86_64-darwin)
+    ffi (1.17.2-x86_64-linux-gnu)
     image_processing (1.14.0)
       mini_magick (>= 4.9.5, < 6)
       ruby-vips (>= 2.0.17, < 3)
@@ -50,6 +51,7 @@ PLATFORMS
   arm64-darwin-24
   x86_64-darwin-21
   x86_64-darwin-24
+  x86_64-linux
 
 DEPENDENCIES
   debug
