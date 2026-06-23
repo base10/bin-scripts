@@ -1,0 +1,171 @@
+#!/usr/bin/env bash
+#
+# git-branch-report - Report on local git branches
+#
+# Usage: git-branch-report [OPTIONS]
+#
+# Options:
+#   -a, --all         Show all sections (default)
+#   -s, --stale       Show stale branches (no commits in 30+ days)
+#   -m, --merged      Show branches merged into main/master
+#   -g, --gone        Show branches with deleted remote tracking
+#   -d, --days NUM    Set stale threshold (default: 30)
+#   -h, --help        Show this help message
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Defaults
+SHOW_ALL=true
+SHOW_STALE=false
+SHOW_MERGED=false
+SHOW_GONE=false
+STALE_DAYS=30
+
+usage() {
+  sed -n '3,12p' "$0" | sed 's/^# //' | sed 's/^#//'
+  exit 0
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -a|--all)    SHOW_ALL=true; shift ;;
+    -s|--stale)  SHOW_STALE=true; SHOW_ALL=false; shift ;;
+    -m|--merged) SHOW_MERGED=true; SHOW_ALL=false; shift ;;
+    -g|--gone)   SHOW_GONE=true; SHOW_ALL=false; shift ;;
+    -d|--days)   STALE_DAYS="$2"; shift 2 ;;
+    -h|--help)   usage ;;
+    *)           echo "Unknown option: $1"; usage ;;
+  esac
+done
+
+# Ensure we're in a git repo
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo -e "${RED}Error: Not a git repository${NC}"
+  exit 1
+fi
+
+# Determine default branch (main or master)
+default_branch() {
+  git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || \
+  git branch -l main master 2>/dev/null | head -1 | tr -d '* ' || \
+  echo "main"
+}
+
+DEFAULT_BRANCH=$(default_branch)
+CURRENT_BRANCH=$(git branch --show-current)
+
+header() {
+  echo ""
+  echo -e "${BOLD}${BLUE}═══ $1 ═══${NC}"
+  echo ""
+}
+
+# Fetch and prune to get accurate remote status
+echo -e "${YELLOW}Fetching from remote...${NC}"
+git fetch --prune --quiet 2>/dev/null || true
+
+# Section: All branches with age
+show_all_branches() {
+  header "All Local Branches (sorted by last commit)"
+  
+  git for-each-ref --sort=committerdate refs/heads/ \
+    --format='%(committerdate:short)|%(committerdate:relative)|%(refname:short)|%(upstream:trackshort)' | \
+  while IFS='|' read -r date relative branch tracking; do
+    # Highlight current branch
+    if [[ "$branch" == "$CURRENT_BRANCH" ]]; then
+      prefix="${GREEN}*${NC}"
+    else
+      prefix=" "
+    fi
+    
+    # Color tracking status
+    case "$tracking" in
+      "<") tracking_color="${YELLOW}behind${NC}" ;;
+      ">") tracking_color="${GREEN}ahead${NC}" ;;
+      "<>") tracking_color="${YELLOW}diverged${NC}" ;;
+      "=") tracking_color="${GREEN}up-to-date${NC}" ;;
+      "") tracking_color="${RED}no remote${NC}" ;;
+      *) tracking_color="$tracking" ;;
+    esac
+    
+    printf "%b %-12s  %-20s  %-30s  %b\n" "$prefix" "$date" "$relative" "$branch" "$tracking_color"
+  done
+}
+
+# Section: Stale branches
+show_stale_branches() {
+  header "Stale Branches (no commits in ${STALE_DAYS}+ days)"
+  
+  cutoff_date=$(date -v-${STALE_DAYS}d +%s 2>/dev/null || date -d "${STALE_DAYS} days ago" +%s)
+  found=0
+  
+  git for-each-ref --sort=committerdate refs/heads/ \
+    --format='%(committerdate:unix)|%(committerdate:relative)|%(refname:short)' | \
+  while IFS='|' read -r timestamp relative branch; do
+    if [[ "$timestamp" -lt "$cutoff_date" && "$branch" != "$DEFAULT_BRANCH" ]]; then
+      echo -e "  ${YELLOW}$branch${NC} - last commit $relative"
+      ((found++)) || true
+    fi
+  done
+  
+  if [[ $found -eq 0 ]]; then
+    echo -e "  ${GREEN}No stale branches found${NC}"
+  fi
+}
+
+# Section: Merged branches
+show_merged_branches() {
+  header "Branches Merged into ${DEFAULT_BRANCH}"
+  
+  merged=$(git branch --merged "$DEFAULT_BRANCH" 2>/dev/null | grep -v "^\*" | grep -v "$DEFAULT_BRANCH" | sed 's/^[[:space:]]*//' || true)
+  
+  if [[ -z "$merged" ]]; then
+    echo -e "  ${GREEN}No merged branches to clean up${NC}"
+  else
+    echo "$merged" | while read -r branch; do
+      echo -e "  ${YELLOW}$branch${NC}"
+    done
+    echo ""
+    echo -e "  ${BOLD}Tip:${NC} Run ${GREEN}git-branch-cleanup --merged${NC} to remove these"
+  fi
+}
+
+# Section: Gone branches (remote deleted)
+show_gone_branches() {
+  header "Branches with Deleted Remote Tracking"
+  
+  gone=$(git branch -vv | grep ': gone]' | awk '{print $1}' || true)
+  
+  if [[ -z "$gone" ]]; then
+    echo -e "  ${GREEN}No orphaned branches found${NC}"
+  else
+    echo "$gone" | while read -r branch; do
+      echo -e "  ${YELLOW}$branch${NC}"
+    done
+    echo ""
+    echo -e "  ${BOLD}Tip:${NC} Run ${GREEN}git-branch-cleanup --gone${NC} to remove these"
+  fi
+}
+
+# Run requested sections
+if $SHOW_ALL; then
+  show_all_branches
+  show_stale_branches
+  show_merged_branches
+  show_gone_branches
+else
+  $SHOW_STALE && show_stale_branches
+  $SHOW_MERGED && show_merged_branches
+  $SHOW_GONE && show_gone_branches
+fi
+
+echo ""

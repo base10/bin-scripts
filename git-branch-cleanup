@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+#
+# git-branch-cleanup - Safely clean up local git branches
+#
+# Usage: git-branch-cleanup [OPTIONS]
+#
+# Options:
+#   -m, --merged      Delete branches merged into main/master
+#   -g, --gone        Delete branches with deleted remote tracking
+#   -s, --stale       Delete stale branches (interactive, requires --days)
+#   -d, --days NUM    Set stale threshold for --stale (default: 90)
+#   -n, --dry-run     Show what would be deleted without deleting
+#   -f, --force       Skip confirmation prompts
+#   -p, --protect PAT Add branch pattern to protect (can be repeated)
+#   -h, --help        Show this help message
+#
+# Examples:
+#   git-branch-cleanup --merged --dry-run
+#   git-branch-cleanup --gone --force
+#   git-branch-cleanup --stale --days 60
+#   git-branch-cleanup --merged --protect 'release/*'
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Defaults
+MODE=""
+DRY_RUN=false
+FORCE=false
+STALE_DAYS=90
+PROTECTED_PATTERNS=("main" "master" "develop" "development" "staging" "production")
+
+usage() {
+  sed -n '3,19p' "$0" | sed 's/^# //' | sed 's/^#//'
+  exit 0
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -m|--merged) MODE="merged"; shift ;;
+    -g|--gone)   MODE="gone"; shift ;;
+    -s|--stale)  MODE="stale"; shift ;;
+    -d|--days)   STALE_DAYS="$2"; shift 2 ;;
+    -n|--dry-run) DRY_RUN=true; shift ;;
+    -f|--force)  FORCE=true; shift ;;
+    -p|--protect) PROTECTED_PATTERNS+=("$2"); shift 2 ;;
+    -h|--help)   usage ;;
+    *)           echo "Unknown option: $1"; usage ;;
+  esac
+done
+
+if [[ -z "$MODE" ]]; then
+  echo -e "${RED}Error: Must specify --merged, --gone, or --stale${NC}"
+  echo ""
+  usage
+fi
+
+# Ensure we're in a git repo
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  echo -e "${RED}Error: Not a git repository${NC}"
+  exit 1
+fi
+
+# Determine default branch
+default_branch() {
+  git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || \
+  git branch -l main master 2>/dev/null | head -1 | tr -d '* ' || \
+  echo "main"
+}
+
+DEFAULT_BRANCH=$(default_branch)
+CURRENT_BRANCH=$(git branch --show-current)
+
+# Check if branch is protected
+is_protected() {
+  local branch="$1"
+  
+  # Never delete current branch
+  if [[ "$branch" == "$CURRENT_BRANCH" ]]; then
+    return 0
+  fi
+  
+  for pattern in "${PROTECTED_PATTERNS[@]}"; do
+    # shellcheck disable=SC2053
+    if [[ "$branch" == $pattern ]]; then
+      return 0
+    fi
+  done
+  
+  return 1
+}
+
+# Confirm action
+confirm() {
+  if $FORCE; then
+    return 0
+  fi
+  
+  local prompt="$1"
+  echo -en "${YELLOW}$prompt [y/N]: ${NC}"
+  read -r response
+  [[ "$response" =~ ^[Yy]$ ]]
+}
+
+# Delete a branch
+delete_branch() {
+  local branch="$1"
+  local flag="${2:--d}"  # -d for safe delete, -D for force
+  
+  if $DRY_RUN; then
+    echo -e "  ${BLUE}[dry-run]${NC} Would delete: $branch"
+  else
+    if git branch "$flag" "$branch" 2>/dev/null; then
+      echo -e "  ${GREEN}Deleted:${NC} $branch"
+    else
+      echo -e "  ${RED}Failed to delete:${NC} $branch (may not be fully merged)"
+    fi
+  fi
+}
+
+# Fetch and prune
+echo -e "${YELLOW}Fetching from remote...${NC}"
+git fetch --prune --quiet 2>/dev/null || true
+
+# Mode: merged branches
+cleanup_merged() {
+  echo -e "\n${BOLD}${BLUE}Cleaning up branches merged into ${DEFAULT_BRANCH}${NC}\n"
+  
+  branches=$(git branch --merged "$DEFAULT_BRANCH" 2>/dev/null | grep -v "^\*" | sed 's/^[[:space:]]*//' || true)
+  
+  if [[ -z "$branches" ]]; then
+    echo -e "${GREEN}No merged branches to clean up${NC}"
+    return
+  fi
+  
+  to_delete=()
+  protected=()
+  
+  while read -r branch; do
+    if is_protected "$branch"; then
+      protected+=("$branch")
+    else
+      to_delete+=("$branch")
+    fi
+  done <<< "$branches"
+  
+  if [[ ${#protected[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}Protected (will skip):${NC}"
+    for b in "${protected[@]}"; do
+      echo "  - $b"
+    done
+    echo ""
+  fi
+  
+  if [[ ${#to_delete[@]} -eq 0 ]]; then
+    echo -e "${GREEN}No branches to delete${NC}"
+    return
+  fi
+  
+  echo -e "${BOLD}Branches to delete:${NC}"
+  for b in "${to_delete[@]}"; do
+    echo "  - $b"
+  done
+  echo ""
+  
+  if confirm "Delete ${#to_delete[@]} branch(es)?"; then
+    for b in "${to_delete[@]}"; do
+      delete_branch "$b" "-d"
+    done
+  else
+    echo -e "${YELLOW}Cancelled${NC}"
+  fi
+}
+
+# Mode: gone branches (remote deleted)
+cleanup_gone() {
+  echo -e "\n${BOLD}${BLUE}Cleaning up branches with deleted remote tracking${NC}\n"
+  
+  branches=$(git branch -vv | grep ': gone]' | awk '{print $1}' || true)
+  
+  if [[ -z "$branches" ]]; then
+    echo -e "${GREEN}No orphaned branches to clean up${NC}"
+    return
+  fi
+  
+  to_delete=()
+  protected=()
+  
+  while read -r branch; do
+    if is_protected "$branch"; then
+      protected+=("$branch")
+    else
+      to_delete+=("$branch")
+    fi
+  done <<< "$branches"
+  
+  if [[ ${#protected[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}Protected (will skip):${NC}"
+    for b in "${protected[@]}"; do
+      echo "  - $b"
+    done
+    echo ""
+  fi
+  
+  if [[ ${#to_delete[@]} -eq 0 ]]; then
+    echo -e "${GREEN}No branches to delete${NC}"
+    return
+  fi
+  
+  echo -e "${BOLD}Branches to delete:${NC}"
+  for b in "${to_delete[@]}"; do
+    echo "  - $b"
+  done
+  echo ""
+  
+  if confirm "Delete ${#to_delete[@]} branch(es)?"; then
+    for b in "${to_delete[@]}"; do
+      delete_branch "$b" "-D"
+    done
+  else
+    echo -e "${YELLOW}Cancelled${NC}"
+  fi
+}
+
+# Mode: stale branches (interactive)
+cleanup_stale() {
+  echo -e "\n${BOLD}${BLUE}Cleaning up stale branches (${STALE_DAYS}+ days old)${NC}\n"
+  
+  cutoff_date=$(date -v-${STALE_DAYS}d +%s 2>/dev/null || date -d "${STALE_DAYS} days ago" +%s)
+  
+  to_delete=()
+  protected=()
+  
+  while IFS='|' read -r timestamp relative branch; do
+    if [[ "$timestamp" -lt "$cutoff_date" ]]; then
+      if is_protected "$branch"; then
+        protected+=("$branch")
+      else
+        to_delete+=("$branch|$relative")
+      fi
+    fi
+  done < <(git for-each-ref --sort=committerdate refs/heads/ \
+    --format='%(committerdate:unix)|%(committerdate:relative)|%(refname:short)')
+  
+  if [[ ${#protected[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}Protected (will skip):${NC}"
+    for b in "${protected[@]}"; do
+      echo "  - $b"
+    done
+    echo ""
+  fi
+  
+  if [[ ${#to_delete[@]} -eq 0 ]]; then
+    echo -e "${GREEN}No stale branches to clean up${NC}"
+    return
+  fi
+  
+  echo -e "${BOLD}Stale branches:${NC}"
+  for entry in "${to_delete[@]}"; do
+    branch="${entry%%|*}"
+    relative="${entry##*|}"
+    echo "  - $branch (last commit: $relative)"
+  done
+  echo ""
+  
+  if $FORCE; then
+    for entry in "${to_delete[@]}"; do
+      branch="${entry%%|*}"
+      delete_branch "$branch" "-D"
+    done
+  else
+    echo -e "${YELLOW}Delete each branch individually:${NC}"
+    for entry in "${to_delete[@]}"; do
+      branch="${entry%%|*}"
+      relative="${entry##*|}"
+      if confirm "  Delete '$branch' (last commit: $relative)?"; then
+        delete_branch "$branch" "-D"
+      else
+        echo -e "  ${BLUE}Skipped:${NC} $branch"
+      fi
+    done
+  fi
+}
+
+# Run the selected mode
+case "$MODE" in
+  merged) cleanup_merged ;;
+  gone)   cleanup_gone ;;
+  stale)  cleanup_stale ;;
+esac
+
+echo ""
