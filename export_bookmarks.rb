@@ -28,6 +28,7 @@ def find_reading_list_folder(bookmarks)
   (bookmarks['Children'] || []).each do |folder|
     return folder if folder['Title'] == 'com.apple.ReadingList'
   end
+
   nil
 end
 
