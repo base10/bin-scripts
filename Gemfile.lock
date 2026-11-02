@@ -23,6 +23,7 @@ GEM
     logger (1.7.0)
     mini_magick (5.3.1)
       logger
+    plist (3.7.2)
     pp (0.6.2)
       prettyprint
     prettyprint (0.2.0)
@@ -49,6 +50,7 @@ GEM
 PLATFORMS
   arm64-darwin-23
   arm64-darwin-24
+  arm64-darwin-25
   x86_64-darwin-21
   x86_64-darwin-24
   x86_64-linux
@@ -59,7 +61,8 @@ DEPENDENCIES
   exif
   image_processing
   image_size
+  plist
   ruby-lsp
 
 BUNDLED WITH
-   2.6.2
+   4.0.6
