@@ -5,12 +5,13 @@ require "erb"
 require "debug"
 
 class OneToOneMeeting
+  BASE_DIR = File.expand_path("~/Documents/vitalsource/one-to-one-notes")
   TEMPLATE_RELATIVE_PATH = "/tmpl/one-to-one.md.erb"
 
   attr_accessor :meeting_notes_markdown
   attr_reader :date, :name, :output_dir
 
-  def initialize(date:, name:, output_dir:)
+  def initialize(date:, name:, output_dir: nil)
     @date = date
     @name = name
     @output_dir = output_dir
@@ -30,7 +31,12 @@ class OneToOneMeeting
   end
 
   def output_path
-    @output_dir + "/" + file_name
+    if @output_dir
+      @output_dir + "/" + file_name
+    else
+      sub_dir = name_for_file
+      File.join(BASE_DIR, sub_dir, file_name)
+    end
   end
 
   def generate_meeting_notes
@@ -66,9 +72,8 @@ OptionParser.new do |opts|
   ) { |v| options[:dir] = v }
 end.parse!
 
-if !options[:date] || !options[:name] || !options[:dir]
-  puts "Error: All required arguments are necessary"
-
+if !options[:date] || !options[:name]
+  puts "Error: Date and Name are required arguments"
   exit(1)
 end
 
