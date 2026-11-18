@@ -59,3 +59,20 @@ Two adjustments:
 
 - The file should save to the following path: `~/Documents/vitalsource/one-to-one-notes/dave-campbell/2026/11/2026-11-17-dave-campbell.md`
 - When the output path is specified with a year and month, use that. Otherwise, fill it in.
+
+## Iter. 3
+
+Next, I need to cleanup `$HOME/Documents/vitalsource/one-on-one-notes` with a new Ruby script.
+
+For each subdirectory within the base path:
+
+- Find files starting with an ISO-8601 date and ending with a `.md` extension.
+- Parse the year and month for the file.
+- Create a year and month subdirectory, if it doesn’t exist.
+- Move the file into the new directory path.
+
+For example:
+
+`/Users/nwalls/Documents/vitalsource/one-on-one-notes/well-ronfim/2026-11-04-well-ronfim.md` would move to `/Users/nwalls/Documents/vitalsource/one-on-one-notes/well-ronfim/2026/11/2026-11-04-well-ronfim.md`
+
+I’m starting with one-on-one-notes, but there will be other file paths I use this utility with. Expect some sort of path argument into the script. It can be `--path`, `-p`, or provided as the first argument.
