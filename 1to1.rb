@@ -3,9 +3,10 @@
 require "optparse"
 require "erb"
 require "debug"
+require "fileutils"
 
 class OneToOneMeeting
-  BASE_DIR = File.expand_path("~/Documents/vitalsource/one-to-one-notes")
+  BASE_DIR = File.expand_path("~/Documents/vitalsource/one-on-one-notes")
   TEMPLATE_RELATIVE_PATH = "/tmpl/one-to-one.md.erb"
 
   attr_accessor :meeting_notes_markdown
@@ -32,10 +33,22 @@ class OneToOneMeeting
 
   def output_path
     if @output_dir
-      @output_dir + "/" + file_name
+      # If output_dir is provided, use it.
+      # If it doesn't end in a slash, ensure one is added before the filename.
+      base = @output_dir
+      base = File.join(base, "") unless base.end_with?("/")
+      base + "/" + file_name
     else
       sub_dir = name_for_file
-      File.join(BASE_DIR, sub_dir, file_name)
+      # Parse the date provided by the user to get year and month
+      # Expected format: YYYY-MM-DD
+      parts = date.split("-")
+      year = parts[0] || "0000"
+      month = parts[1] || "00"
+
+      # Construct path: BASE_DIR/name_for_file/YYYY/MM/YYYY-MM-DD-name_for_file.md
+      specific_file_name = "#{date}-#{sub_dir}.md"
+      File.join(BASE_DIR, sub_dir, year, month, specific_file_name)
     end
   end
 
@@ -55,6 +68,8 @@ class OneToOneMeeting
   end
 
   def save_to_file
+    # Ensure the directory exists before writing
+    FileUtils.mkdir_p(File.dirname(output_path))
     File.open(output_path, 'w') do |file|
       file.write meeting_notes_markdown
     end
